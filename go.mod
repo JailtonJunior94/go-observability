@@ -1,6 +1,6 @@
 module github.com/jailtonjunior94/go-instrumentation
 
-go 1.21
+go 1.22
 
 require (
 	go.opentelemetry.io/otel v1.23.1
@@ -10,8 +10,7 @@ require (
 )
 
 require (
-	github.com/go-chi/chi/v5 v5.0.11
-	github.com/prometheus/client_golang v1.18.0
+	github.com/go-chi/chi/v5 v5.0.12
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.23.1
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.23.1
 	go.opentelemetry.io/otel/exporters/prometheus v0.45.2
@@ -27,6 +26,7 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.19.0 // indirect
 	github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0 // indirect
+	github.com/prometheus/client_golang v1.18.0 // indirect
 	github.com/prometheus/client_model v0.5.0 // indirect
 	github.com/prometheus/common v0.45.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect

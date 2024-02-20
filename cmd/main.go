@@ -4,56 +4,58 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"math/rand"
 	"net"
 	"net/http"
 	"time"
 
+	"github.com/jailtonjunior94/go-instrumentation/pkg/http/middlewares"
+	"github.com/jailtonjunior94/go-instrumentation/pkg/observability"
+
 	"github.com/go-chi/chi/v5"
-	"github.com/jailtonjunior94/go-instrumentation/pkg/instrumentation"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/metric"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 func main() {
 	ctx := context.Background()
-	instrumentation := instrumentation.NewInstrumentation(ctx, "sample", "1.0.0", "localhost:4317")
 
-	tracer := instrumentation.GetTracer()
-	tp := instrumentation.TracerProvider()
+	observability := observability.NewObservability(
+		observability.WithServiceName("go-telemetry"),
+		observability.WithServiceVersion("1.0.0"),
+		observability.WithResource(),
+		observability.WithTracerProvider(ctx, "localhost:4317"),
+		observability.WithMeterProvider(ctx, "localhost:4317"),
+	)
+
+	tracerProvider := observability.TracerProvider()
 	defer func() {
-		if err := tp.Shutdown(ctx); err != nil {
+		if err := tracerProvider.Shutdown(ctx); err != nil {
 			log.Fatal(err)
 		}
 	}()
 
-	mp := instrumentation.MeterProvider()
+	meterProvider := observability.MeterProvider()
 	defer func() {
-		if err := mp.Shutdown(ctx); err != nil {
+		if err := meterProvider.Shutdown(ctx); err != nil {
 			log.Fatal(err)
 		}
 	}()
+
+	metricsMiddleware, err := middlewares.NewHTTPMetricsMiddleware(observability)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	router := chi.NewRouter()
-	router.Handle("/metrics", promhttp.Handler())
+	router.Use(
+		middleware.Logger,
+		middleware.Recoverer,
+		metricsMiddleware.Metrics,
+		middleware.Heartbeat("/health"),
+		middleware.SetHeader("Content-Type", "application/json"),
+	)
 
-	router.Get("/api", func(w http.ResponseWriter, r *http.Request) {
-		ctx, span := tracer.Start(r.Context(), "roll")
-		defer span.End()
-
-		meter := mp.Meter("sample")
-		rollCnt, _ := meter.Int64Counter("dice.rolls",
-			metric.WithDescription("The number of rolls by roll value"),
-			metric.WithUnit("{roll}"),
-		)
-
-		roll := 1 + rand.Intn(6)
-		rollValueAttr := attribute.Int("roll.value", roll)
-		rollCnt.Add(ctx, 1, metric.WithAttributes(rollValueAttr))
-
-		w.WriteHeader(http.StatusOK)
-		fmt.Println(ctx)
+	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Hello World"))
 	})
 
 	server := http.Server{
@@ -62,9 +64,9 @@ func main() {
 		Handler:           router,
 	}
 
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%s", "9000"))
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%s", "7001"))
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	server.Serve(listener)
 }
